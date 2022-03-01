@@ -1,0 +1,48 @@
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  dist:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        tag:
+        - 12-alpine3.10
+        - 16-alpine3.11
+        platform:
+        - arm64
+        - arm
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup binfmt
+      run: docker run --privileged --rm tonistiigi/binfmt --install all
+    - name: Extract from docker image
+      run: |
+        container=$(docker run -d --platform "linux/${{matrix.platform}}" "node:${{matrix.tag}}" /bin/sh -c "mkdir /dist && mkdir /dist/bin && mkdir /dist/lib && cp /usr/local/bin/node /dist/bin/ && cp /usr/lib/libstdc\+\+.so.6 /usr/lib/libgcc_s.so.1 /dist/lib")
+        docker wait "$container"
+        mkdir dist
+        docker cp "$container:/dist/." dist/
+        docker rm "$container"
+        patchelf dist/bin/node --set-rpath \$ORIGIN/../lib
+      shell: bash
+    - name: Package
+      run: tar czf "../node-${{matrix.tag}}-${{matrix.platform}}.tar.gz" .
+      working-directory: dist
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: node-${{matrix.tag}}-${{matrix.platform}}
+        path: node-${{matrix.tag}}-${{matrix.platform}}.tar.gz
+  publish:
+    needs: dist
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/download-artifact@v2
+      with:
+        path: "artifacts"
+    - uses: ncipollo/release-action@v1
+      with:
+        artifacts: "artifacts/**/*.tar.gz"
+        token: ${{ secrets.GITHUB_TOKEN }}
+        tag: v1.${{ github.run_id }}.${{ github.run_attempt }}
+        commit: ${{ github.sha }}
