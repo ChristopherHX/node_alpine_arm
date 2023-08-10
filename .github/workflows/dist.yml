@@ -9,11 +9,12 @@ jobs:
         tag:
         - 12-alpine3.10
         - 16-alpine3.11
+        - 20-alpine3.16
         platform:
         - arm64
         - arm
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
     - name: Setup binfmt
       run: docker run --privileged --rm tonistiigi/binfmt --install all
     - name: Extract from docker image
@@ -29,7 +30,7 @@ jobs:
       run: tar czf "../node-${{matrix.tag}}-${{matrix.platform}}.tar.gz" .
       working-directory: dist
     - name: Upload Artifact
-      uses: actions/upload-artifact@v2
+      uses: actions/upload-artifact@v3
       with:
         name: node-${{matrix.tag}}-${{matrix.platform}}
         path: node-${{matrix.tag}}-${{matrix.platform}}.tar.gz
@@ -37,7 +38,7 @@ jobs:
     needs: dist
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v3
       with:
         path: "artifacts"
     - uses: ncipollo/release-action@v1
